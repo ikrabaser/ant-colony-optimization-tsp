@@ -7,7 +7,8 @@ Karınca Kolonisi Optimizasyonu'nu (Ant System) önce **elle** (5 şehirli küç
 | Dosya | Açıklama |
 |---|---|
 | `aco_el_hesabi.py` | 5 şehirli TSP. El hesabını adım adım tekrar eder |
-| `aco.py` | Genel ACO (NumPy): rastgele şehirler, referans yöntemler (rastgele tur, en yakın komşu, 2-opt) |
+| `aco.py` | Genel ACO (NumPy): Ant System ve MMAS varyantı, referans yöntemler (rastgele tur, en yakın komşu, 2-opt) |
+| `karsilastirma_mmas.py` | Ant System ile MMAS karşılaştırması (5 ve 20 şehir) |
 | `gorseller_uret.py` | README'deki görselleri üretir |
 | `gorseller/` | Üretilen görseller (PNG) |
 | `requirements.txt` | Gereken paketler (`numpy`, `matplotlib`) |
@@ -298,6 +299,7 @@ Aynı kurulum (3 karınca, aynı başlangıç şehirleri), 100 iterasyon, ilk ik
 
 - **7/10 tohum optimuma (19) ulaştı**, hepsi ilk 5 iterasyon içinde.
 - **Tohum 1, 2 ve 9'da 1. iterasyonda bulunan 24'lük tur hiç iyileşmedi.** Bu tohumlarda 100. iterasyonda feromonun tamamı o turun (1 → 2 → 5 → 4 → 3 → 1) 5 kenarında toplanmış, diğer kenarlarda ≈ 0 kalmıştı. Karıncalar artık yalnızca aynı turu tekrar ediyor. Optimuma ulaşan 7 tohumda da aynı yakınsama var, ama orada feromon optimum turun 5 kenarında toplanmış.
+- **10 tohum küçük bir örneklem.** Aynı kurulumda 200 tohumla 183'ü (%91.5) optimuma ulaşıyor, yani takılma burada görünenden daha nadir (bkz. [Ant System ve MMAS karşılaştırması](#ant-system-ve-mmas-karşılaştırması)).
 - Optimum tur farklı başlangıç şehri ve yönle yazılmış olabilir (ör. `3 -> 2 -> 1 -> 5 -> 4 -> 3` ile `1 -> 2 -> 3 -> 4 -> 5 -> 1` aynı turdur).
 
 ## Kodu çalıştırma
@@ -589,6 +591,7 @@ Hazır mesafe matrisin varsa doğrudan `ACO(mesafe)` ver. `tur` şehir numaralar
 - Karınca sayısı varsayılan olarak şehir sayısı kadar, her karınca rastgele bir şehirden başlar
 - Başlangıç feromonu `m / L_nn` (m karınca sayısı, L_nn en yakın komşu turunun uzunluğu)
 - `alpha`, `beta`, `rho`, `Q` parametreleri ayarlanabilir. Varsayılanlar: `alpha=1`, `beta=3`, `rho=0.5`, `Q=1`
+- `variant="as"` (Ant System, varsayılan) ya da `variant="mmas"` (MAX-MIN Ant System, aşağıda)
 - `patience` iterasyon boyunca iyileşme olmazsa erken durdurma (varsayılan: kapalı)
 - Sayısal güvenlik: feromon `tau_min = 1e-10` altına inmez
 - Karşılaştırma için `rastgele_tur`, `en_yakin_komsu` ve `iki_opt` fonksiyonları
@@ -615,11 +618,50 @@ Hazır mesafe matrisin varsa doğrudan `ACO(mesafe)` ver. `tur` şehir numaralar
 - ACO'da 10 tohumun hepsi en geç 21. iterasyonda 341.58'e yerleşti. Feromonsuz sürüm (`alpha=0`, yalnızca mesafeye bakan rastgele seçim) 200 iterasyonda ortalama 348.59'da kaldı ve 10 tohumdan yalnızca biri 341.58'e ulaştı. Aradaki fark feromonun öğrenmeye katkısını gösteriyor.
 - Feromonsuz sürüm de 10 tohumdan birinde 341.58'i buldu, yani bu küçük problemde şans eseri de bulunabiliyor.
 
+## Ant System ve MMAS karşılaştırması
+
+Uzun çalıştırmada bazı tohumların feromonu tek bir tura yığıp takılması, Ant System'in bilinen bir zayıflığı. **MAX-MIN Ant System (MMAS)** buna karşı iki değişiklik yapar:
+
+- Feromonu yalnızca o iterasyonun **en iyi karıncası** bırakır (diğerleri bırakmaz).
+- Feromon bir aralığa kırpılır: `tau_ust = Q / (rho · L_en_iyi)`, `tau_alt = tau_ust / (2n)`. Böylece hiçbir kenarın seçilme şansı tamamen sıfıra inmez.
+
+Kodda `ACO(mesafe, variant="mmas")` ile seçilir. Karşılaştırma `python karsilastirma_mmas.py` ile üretilir (yaklaşık 1 dk).
+
+### 5 şehir (el hesabı kurulumu)
+
+Aynı kurulum (3 karınca, sabit başlangıç şehirleri, ilk iki iterasyonda aynı `r` değerleri), 100 iterasyon, 200 tohum. Kaç tohum optimuma (L = 19) ulaştı:
+
+| Yöntem | rho | Optimuma ulaşan tohum |
+|---|---|---|
+| Ant System | 0.5 | 183/200 (%91.5) |
+| Ant System | 0.1 | 200/200 (%100.0) |
+| MMAS | 0.5 | 200/200 (%100.0) |
+| MMAS | 0.1 | 200/200 (%100.0) |
+
+### 20 şehir
+
+Aynı 20 şehirli örnek (`seed = 42`), 20 karınca, 200 iterasyon, 10 tohum:
+
+| Yöntem | rho | Ortalama | En iyi | En kötü | Son değere indiği iterasyon (medyan / en yüksek) |
+|---|---|---|---|---|---|
+| Ant System | 0.5 | 341.58 | 341.58 | 341.58 | 13 / 21 |
+| MMAS | 0.5 | 341.58 | 341.58 | 341.58 | 11 / 133 |
+| MMAS | 0.1 | 341.58 | 341.58 | 341.58 | 23 / 31 |
+
+Bulgular:
+
+- **5 şehirde MMAS (`rho = 0.5`) takılmayı ortadan kaldırdı:** Ant System'de 200 tohumun 17'si optimuma ulaşamamıştı, MMAS'ta hepsi ulaştı.
+- **Ama bunu yalnızca MMAS'a bağlayamam.** Ant System'de `rho`'yu 0.1'e düşürmek de aynı sonucu (200/200) verdi. Bu küçük problemde "feromon sınırları" ile "yavaş buharlaşma" birbirinden ayrılamıyor.
+- **20 şehirde üç yapılandırma da aynı sonuca ulaştı** (hepsi 10/10 tohumda 341.58). Bu örnek yöntemleri ayırt edemeyecek kadar kolay, yani MMAS'ın bir avantajını gösteremedim.
+- Hız açısından MMAS (`rho = 0.5`) medyanda biraz daha hızlı (11'e karşı 13 iterasyon) ama çok daha değişken: bir tohum 133. iterasyona kadar iyileşmeye devam etti. `rho = 0.1` ile izler daha yavaş silindiği için beklenen şekilde daha geç yerleşti (medyan 23).
+- Bunlar tek bir 20 şehirli örnek ve 5 şehirli küçük bir problem üzerinde. MMAS'ın asıl avantajının görüleceği daha büyük problemlerde (ör. 50+ şehir) denemedim.
+
 ## Kurulum
 
 ```bash
 pip install -r requirements.txt
-python aco_el_hesabi.py    # el hesabının kodu
-python aco.py              # genel ACO + karşılaştırma (yaklaşık 30 sn sürer)
-python gorseller_uret.py   # görselleri yeniden üret (yaklaşık 35 sn sürer)
+python aco_el_hesabi.py       # el hesabının kodu
+python aco.py                 # genel ACO + karşılaştırma (yaklaşık 30 sn sürer)
+python karsilastirma_mmas.py  # Ant System ve MMAS karşılaştırması (yaklaşık 1 dk sürer)
+python gorseller_uret.py      # görselleri yeniden üret (yaklaşık 35 sn sürer)
 ```

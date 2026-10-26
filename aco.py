@@ -12,6 +12,13 @@ Tüm karıncalar turunu bitirince feromon güncellenir:
 Kısa turlar kenarlara daha çok feromon bırakır, sonraki karıncalar bu kenarlara daha çok
 yönelir. Buharlaşma (rho) eski ve kötü izlerin zamanla silinmesini sağlar.
 
+İki varyant var (variant parametresi):
+    "as"  : Ant System. Her karınca kendi turunun kenarlarına feromon bırakır.
+    "mmas": MAX-MIN Ant System. Yalnızca iterasyonun en iyi karıncası feromon bırakır ve
+            feromon [tau_alt, tau_ust] aralığına kırpılır (tau_ust = Q / (rho * L_en_iyi),
+            tau_alt = tau_ust / (2n)). Feromonun tek bir tura yığılıp diğer kenarları
+            tamamen silmesini engeller.
+
 Karşılaştırma için üç yardımcı yöntem de var: rastgele tur, en yakın komşu ve 2-opt.
 """
 
@@ -77,10 +84,14 @@ class ACO:
         beta=3.0,         # görünürlük (1/mesafe) ağırlığı
         rho=0.5,          # buharlaşma oranı
         Q=1.0,            # feromon miktarı (kenara Q / tur uzunluğu kadar bırakılır)
-        tau_min=1e-10,    # sayısal güvenlik: feromon bunun altına inmez
+        tau_min=1e-10,    # sayısal güvenlik: feromon bunun altına inmez ("as" varyantında)
         patience=None,    # kaç iterasyon iyileşme olmazsa dur (None -> hiç durma)
+        variant="as",     # "as": Ant System, "mmas": MAX-MIN Ant System
         seed=None,
     ):
+        if variant not in ("as", "mmas"):
+            raise ValueError("variant 'as' veya 'mmas' olmalı")
+        self.variant = variant
         self.mesafe = np.asarray(mesafe, dtype=float)
         self.n = len(self.mesafe)
         self.n_ants = n_ants or self.n
@@ -124,9 +135,17 @@ class ACO:
         """
         mesafe, n = self.mesafe, self.n
 
-        # Başlangıç feromonu: m / L_nn (Dorigo ve Stützle'nin önerisi), L_nn en yakın komşu turu
+        mmas = self.variant == "mmas"
+
+        # Başlangıç feromonu. Ant System: m / L_nn (Dorigo ve Stützle'nin önerisi), L_nn en yakın
+        # komşu turunun uzunluğu. MMAS: üst sınırın tahmini Q / (rho * L_nn).
         L_nn = tur_uzunlugu(en_yakin_komsu(mesafe), mesafe)
-        tau = np.full((n, n), self.n_ants / L_nn)
+        if mmas:
+            tau_ust = self.Q / (self.rho * L_nn)
+            tau_alt = tau_ust / (2 * n)
+            tau = np.full((n, n), tau_ust)
+        else:
+            tau = np.full((n, n), self.n_ants / L_nn)
         np.fill_diagonal(tau, 0.0)
 
         en_iyi_tur, en_iyi_L = None, np.inf
@@ -140,16 +159,6 @@ class ACO:
                 turlar.append(tur)
                 uzunluklar.append(tur_uzunlugu(tur, mesafe))
 
-            # Buharlaşma, sonra her karıncanın bıraktığı feromon
-            tau *= 1.0 - self.rho
-            for tur, L in zip(turlar, uzunluklar):
-                a = np.array(tur)
-                b = np.roll(a, -1)
-                np.add.at(tau, (a, b), self.Q / L)
-                np.add.at(tau, (b, a), self.Q / L)  # simetrik problem
-            np.maximum(tau, self.tau_min, out=tau)
-            np.fill_diagonal(tau, 0.0)
-
             en_iyi_k = int(np.argmin(uzunluklar))
             if uzunluklar[en_iyi_k] < en_iyi_L - 1e-12:
                 en_iyi_L = uzunluklar[en_iyi_k]
@@ -158,6 +167,30 @@ class ACO:
             else:
                 durgun += 1
             gecmis.append(en_iyi_L)
+
+            # Buharlaşma, sonra feromon ekleme
+            tau *= 1.0 - self.rho
+            if mmas:
+                # MMAS: yalnızca bu iterasyonun en iyi karıncası feromon bırakır
+                yatirimcilar = [(turlar[en_iyi_k], uzunluklar[en_iyi_k])]
+            else:
+                # Ant System: her karınca kendi turunun kenarlarına bırakır
+                yatirimcilar = list(zip(turlar, uzunluklar))
+            for tur, L in yatirimcilar:
+                a = np.array(tur)
+                b = np.roll(a, -1)
+                np.add.at(tau, (a, b), self.Q / L)
+                np.add.at(tau, (b, a), self.Q / L)  # simetrik problem
+
+            if mmas:
+                # Sınırlar şimdiye kadarki en iyi tura göre güncellenir; feromon bu aralığa kırpılır.
+                # Böylece hiçbir kenarın seçilme şansı tamamen sıfıra inmez.
+                tau_ust = self.Q / (self.rho * en_iyi_L)
+                tau_alt = tau_ust / (2 * n)
+                np.clip(tau, tau_alt, tau_ust, out=tau)
+            else:
+                np.maximum(tau, self.tau_min, out=tau)
+            np.fill_diagonal(tau, 0.0)
 
             if self.patience is not None and durgun >= self.patience:
                 break

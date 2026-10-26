@@ -89,6 +89,7 @@ def ant_system(
     n_iter=2,
     seed=0,
     kayit=False,
+    variant="as",
 ):
     """Ant System ile TSP çözer.
 
@@ -96,6 +97,10 @@ def ant_system(
     rassal    : rassal[t][k] = t. iterasyonda k. karıncanın rulet sayıları. Verilmeyen
                 iterasyonlarda rassal sayılar `seed` ile rastgele üretilir.
     kayit     : True ise her adımın ara değerleri `log` içinde döndürülür.
+    variant   : "as" -> yukarıdaki Ant System (el hesabı bu). "mmas" -> MAX-MIN Ant System:
+                yalnızca iterasyonun en iyi karıncası feromon bırakır ve feromon
+                [tau_alt, tau_ust] aralığına kırpılır (tau_ust = Q / (rho * L_en_iyi),
+                tau_alt = tau_ust / (2n)). Yalnızca karşılaştırma içindir, el hesabında kullanılmaz.
     """
     rng = np.random.default_rng(seed)
     n = len(mesafe)
@@ -172,12 +177,21 @@ def ant_system(
         tau = (1.0 - rho) * tau
         tau_buharlasmis = tau.copy()
         delta = np.zeros((n, n))
-        for tur, L in zip(turlar, uzunluklar):
+        if variant == "mmas":
+            k_en = int(np.argmin(uzunluklar))  # yalnızca bu iterasyonun en iyi karıncası
+            yatirimcilar = [(turlar[k_en], uzunluklar[k_en])]
+        else:
+            yatirimcilar = list(zip(turlar, uzunluklar))
+        for tur, L in yatirimcilar:
             for a in range(n):
                 i, j = tur[a], tur[(a + 1) % n]
                 delta[i, j] += Q / L
                 delta[j, i] += Q / L  # simetrik problem: kenar iki yönde de pekişir
         tau = tau + delta
+        if variant == "mmas":
+            tau_ust = Q / (rho * en_iyi_L)
+            tau = np.clip(tau, tau_ust / (2 * n), tau_ust)
+            np.fill_diagonal(tau, 0.0)
         gecmis.append(en_iyi_L)
 
         if kayit:
