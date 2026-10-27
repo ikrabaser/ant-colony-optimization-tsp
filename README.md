@@ -10,8 +10,14 @@ Karınca Kolonisi Optimizasyonu'nu (Ant System) önce **elle** (5 şehirli küç
 | `aco.py` | Genel ACO (NumPy): Ant System ve MMAS varyantı, referans yöntemler (rastgele tur, en yakın komşu, 2-opt) |
 | `karsilastirma_mmas.py` | Ant System ile MMAS karşılaştırması (5 ve 20 şehir) |
 | `gorseller_uret.py` | README'deki görselleri üretir |
+| `aco_dort_sehir.py` | 4 şehirli örnek. Olasılığı, ruleti ve feromon güncellemesini adım adım yazdırır |
+| `DORT_SEHIR_ORNEGI.md` | 4 şehirli örneğin hesap adımları, kod çıktısı ve görselleri |
+| `gorseller_dort_sehir.py` | 4 şehirli örneğin görsellerini üretir |
+| `test_dort_sehir.py` | 4 şehirli örneğin el hesabıyla uyumunu doğrular (`python -m unittest -v test_dort_sehir`) |
 | `gorseller/` | Üretilen görseller (PNG) |
 | `requirements.txt` | Gereken paketler (`numpy`, `matplotlib`) |
+
+4 şehirli ayrı bir örnek için [DORT_SEHIR_ORNEGI.md](DORT_SEHIR_ORNEGI.md) dosyasına bakılabilir.
 
 ## Neden feromon ve görünürlük?
 
