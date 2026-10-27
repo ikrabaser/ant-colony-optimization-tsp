@@ -106,6 +106,24 @@ Bu karıncanın bıraktığı: 1/14 = 0.0714 (kullandığı yollara)
   C-D    0.5700     0.2850       0.0714      0.3564
 ```
 
+## Görseller
+
+Görsellerdeki sayılar `aco_dort_sehir.py` fonksiyonlarından gelir. Yeniden üretmek için
+`python gorseller_dort_sehir.py` çalıştırılır.
+
+**Graf:** mesafeler, iterasyon 1 sonrası feromon (kalınlık tau ile orantılı) ve
+iterasyon 2'deki karıncanın turu.
+
+![Graf](gorseller/dort_sehir_graf.png)
+
+**Rulet çubukları:** her adımda kümülatif aralıklar ve rassal sayının düştüğü aralık.
+
+![Rulet](gorseller/dort_sehir_rulet.png)
+
+**Feromon değişimi:** tur sonrası her yolun feromonu. Tüm yollar buharlaşır, tur içindeki yollara 1/L eklenir.
+
+![Feromon değişimi](gorseller/dort_sehir_feromon_degisimi.png)
+
 ## Notlar
 
 - İterasyon 1'deki tau değerleri 2 basamağa yuvarlanmıştır (0.57, 0.60,
